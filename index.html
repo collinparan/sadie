@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <title>Speech to GPT</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" integrity="sha384-ujeGmEuGcD6pDf199Ee6D0BLrgjzMR1lN00M6XCn9XjGH0kcMlIEYbR5FgycneZt" crossorigin="anonymous">
+    <style>
+    html,
+    body {
+    width: 100%;
+    height: 100%;
+    }
+
+    body {
+    background: #4286F3;
+    margin: 0px;
+    overflow: hidden;
+    }
+
+    .record-btn {
+        background-color: #4CAF50;
+        color: white;
+        padding: 15px;
+        border: none;
+        display: block;
+        border-radius: 50%;
+        font-size: 800%;
+        cursor: pointer;
+        align-content: center;
+        margin: 0 auto;
+        width: 100px;
+        height: 100px;
+      } 
+
+    #start-btn {
+    background-color: #4CAF50;
+    font-size: 1.4em;
+    }
+
+     #stop-btn {
+        box-shadow: 0px 1px 3px rgba(210, 67, 73, 0.2);
+        display: none;
+        background-color: red;
+        font-size: 1em;
+        overflow: visible;
+      }
+
+
+    .ripples::before,
+    .ripples::after {
+        content: '';
+        display: block;
+        position: absolute;
+        // border: 50%;
+        border: 1px solid #d24349;
+        left: -20px;
+        right: -20px;
+        top: -20px;
+        bottom: -20px;
+        border-radius: 50%;
+        animation: ripples 1.5s linear infinite;
+        opacity: 0;
+        backface-visibility: hidden;
+        z-index: -1;
+    }
+
+    .ripples::after {
+        animation-delay: .5s;
+    }
+
+    @keyframes ripples {
+        0% { transform: scale(0.5); opacity: 0; }
+        50% { opacity: 1; }
+        100% { transform: scale(1.2); opacity: 0; }
+    }
+
+    .icon {
+        font-size: 0.5em;
+    }
+</style>
+</head>
+  <body>
+    <button id="start-btn" class="record-btn">Push to Speak</button>
+    <button id="stop-btn" class="record-btn ripples">
+        <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" fill="currentColor" class="bi bi-mic" viewBox="0 0 16 16">
+        <path d="M3.5 6.5A.5.5 0 0 1 4 7v1a4 4 0 0 0 8 0V7a.5.5 0 0 1 1 0v1a5 5 0 0 1-4.5 4.975V15h3a.5.5 0 0 1 0 1h-7a.5.5 0 0 1 0-1h3v-2.025A5 5 0 0 1 3 8V7a.5.5 0 0 1 .5-.5z"/>
+        <path d="M10 8a2 2 0 1 1-4 0V3a2 2 0 1 1 4 0v5zM8 0a3 3 0 0 0-3 3v5a3 3 0 0 0 6 0V3a3 3 0 0 0-3-3z"/>
+        </svg>
+    </button>
+    <div>
+      <h2>Spoken Question</h2>
+      <div id="result"></div>
+    </div>
+    <div>
+      <h2>GPT Response</h2>
+      <div id="response"></div>
+    </div>
+    <script>
+    const recognition = new webkitSpeechRecognition();
+const resultDiv = document.getElementById('result');
+let speechResult = '';
+
+const urlParams = new URLSearchParams(window.location.search);
+const API_KEY = urlParams.get('api_key');
+
+recognition.lang = 'en-US';
+
+document.getElementById('start-btn').addEventListener('click', () => {
+  recognition.start();
+  speechResult = '';
+  document.getElementById('start-btn').style.display = 'none';
+  document.getElementById('stop-btn').style.display = 'block';
+});
+
+document.getElementById('stop-btn').addEventListener('click', () => {
+  recognition.stop();
+  document.getElementById('start-btn').style.display = 'block';
+  document.getElementById('stop-btn').style.display = 'none';
+});
+
+recognition.onresult = (event) => {
+  speechResult += event.results[event.results.length - 1][0].transcript;
+  resultDiv.innerHTML = speechResult;
+};
+
+recognition.onend = async () => {
+  const gptResponse = await callGPT(speechResult);
+
+  const responseDiv = document.getElementById('response');
+  responseDiv.innerHTML = gptResponse;
+
+  const synth = window.speechSynthesis;
+  const utterance = new SpeechSynthesisUtterance(gptResponse);
+  synth.speak(utterance);
+
+  document.getElementById('start-btn').style.display = 'block';
+  document.getElementById('stop-btn').style.display = 'none';
+};
+
+async function callGPT(question) {
+  const GPT_URL = 'https://api.openai.com/v1/chat/completions';
+
+  const response = await fetch(GPT_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${API_KEY}`
+      },
+      body: JSON.stringify({
+        "messages": [
+            {
+            "role": "system",
+            "content": "You are, Sadie, a helpful and chatty assistant that helps users with dementia, alzheimers, or memory problems with tasks and words they forgot. Sometimes users will need to describe a word they have forgotten, you will help guess what it is for them. "
+            },
+            {
+            "role": "user",
+            "content": `${question}`
+            }
+        ],
+        "temperature": 0.2,
+        "max_tokens": 256,
+        "top_p": 1,
+        "frequency_penalty": 0,
+        "presence_penalty": 0,
+        "model": "gpt-4",
+        "stream": false
+        })
+  });
+
+  const data = await response.json();
+  console.log(data.choices[0].message.content);
+  return data.choices[0].message.content;
+}
+
+    </script>
+  </body>   
+</html>
+
+
